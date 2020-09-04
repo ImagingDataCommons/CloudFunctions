@@ -19,6 +19,18 @@ def sink_budget_alert_to_logs(event, context):
 
     json_data = json.loads(data_str)
     cis = json_data["costIntervalStart"]
+
+
+    #
+    # We get this ppubsub message about every 20 minutes all month long. Usually we don't care, until the
+    # "alertThresholdExceeded" come through. Then, we act. Otherwise, we ignore and return:
+    #
+
+    if "alertThresholdExceeded" not in json_data:
+        print('PubSub messageId {} published at {}: cost start: {} cost: {}'.format(context.event_id, context.timestamp,
+                                                                                    str(cis), str(json_data["costAmount"])))
+        return
+
     thresh = str(json_data["alertThresholdExceeded"])
 
     storage_client = storage.Client()

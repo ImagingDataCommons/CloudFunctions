@@ -4,11 +4,26 @@ import json
 import os
 from google.cloud import storage
 
+#
+# This is what the pubsub message looks like. If you want to limit
+# the function to a specific budget, check the display name:
+#
+# {
+# "budgetDisplayName": "MonthlyTotal",
+# "alertThresholdExceeded": 0.9,
+# "costAmount": 5860.14,
+# "costIntervalStart": "2020-11-01T07:00:00Z",
+# "budgetAmount": 6500.0,
+# "budgetAmountType": "SPECIFIED_AMOUNT",
+# "currencyCode": "USD"
+# }
+
 def sink_budget_alert_to_logs(event, context):
 
     STATE_BUCKET = os.environ["STATE_BUCKET"]
     STATE_BLOB = os.environ["STATE_BLOB"]
     MAX_MSG = int(os.environ["MAX_MSG"])
+    BUDGET_NAME = os.environ["BUDGET_NAME"]
 
     """Logs a pubsub message, but only the first MAX_MSG times we see it per month (used for budget alerts)"""
 
@@ -18,8 +33,13 @@ def sink_budget_alert_to_logs(event, context):
         return
 
     json_data = json.loads(data_str)
-    cis = json_data["costIntervalStart"]
 
+    budget_name = json_data["budgetDisplayName"]
+    if budget_name != BUDGET_NAME:
+        # SILENT IGNORE
+        return
+
+    cis = json_data["costIntervalStart"]
 
     #
     # We get this ppubsub message about every 20 minutes all month long. Usually we don't care, until the

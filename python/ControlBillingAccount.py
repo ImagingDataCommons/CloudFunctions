@@ -63,11 +63,16 @@ def control_billing(data, context):
 
     blob = bucket.blob(state_blob)
     blob_str = blob.download_as_string() if blob.exists() else b''
-    raw_budget_state = {"messages": {}, "amounts": {cis: 0}} if (blob_str == b'') else json.loads(blob_str)
+    raw_budget_state = {"budget": budget_amount, "messages": {}, "amounts": {cis: 0}} if (blob_str == b'') else json.loads(blob_str)
+    # Bring old dicts up to speed. Messages were added before budget, so this order catches all cases:
     if "messages" not in raw_budget_state:
         budget_super_state = {"messages": {}, "amounts": raw_budget_state}
     else:
         budget_super_state = raw_budget_state
+
+    if ("budget" not in budget_super_state) or (budget_super_state['budget'] != budget_amount):
+        budget_super_state['budget'] = budget_amount
+
     budget_state = budget_super_state['amounts']
     budget_state[cis] = cost_amount
     message_state = budget_super_state['messages']
@@ -211,7 +216,7 @@ def _list_services_for_project(project_id):
     service_u = discovery.build('serviceusage', 'v1', cache_discovery=False)
 
     service_list = []
-    s_request = service_u.services().list(parent="projects/idc-external-000")
+    s_request = service_u.services().list(parent='projects/{}'.format(project_id))
     while s_request is not None:
         response = s_request.execute()
         for serv in response['services']:
@@ -273,7 +278,7 @@ def _prepare_shutdown_list(compute_inventory, stop_count=None):
         for_stamp = by_stamp[started]
         for machine_tuple in for_stamp:
             retval.append(machine_tuple)
-            count += k[2]
+            count += machine_tuple[2]
             if stop_count is not None and count > stop_count:
                 break
         if stop_count is not None and count > stop_count:
